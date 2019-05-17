@@ -17,6 +17,15 @@
         Gives X amount in the past NOT including the current second.
         "-t 1m" with now:1000 (start:940, end:999)
 
+
+    One Argument and an option
+    --------------------------
+
+    Timerange rounded
+        Gives X amount in the past NOT including the current second, rounded.
+        "-t 2m --round" with now:12:34:15 (start:12:32:00, end:12:33:59)
+
+
     Two Arguments
     -------------
 
@@ -96,6 +105,9 @@ public void setupTimeIntervalArgs ( Arguments args, bool required )
         .help("If not set, then a range of '-t 2019-04-01 2019-04-02' will \n" ~
               "include the end date's data. eg. (end: 2019-04-02 23:59:59) \n" ~
               "If set, end date data will not be included, eg.(end: 2019-04-01 23:59:59)");
+    args("round")
+        .help("If set in combination with time duration, would round previous \n" ~
+            "begin and end minute/hour/day");
 
     if ( required )
     {
@@ -141,6 +153,7 @@ public TimestampInterval processTimeIntervalArgs ( Arguments args )
     auto num_args = args["time-interval"].assigned.length;
     enforce(num_args >= 1 && num_args <= 2, "Not enough arguments provided");
     bool include_end_date = !args["time-interval-exclude"].set;
+    bool round = args["round"].set;
 
     long begin, end;
 
@@ -150,6 +163,14 @@ public TimestampInterval processTimeIntervalArgs ( Arguments args )
         if ( isTimeInterval(arg) )
         {
             end = time(null);
+
+            if ( round )
+            {
+                long modulu_this;
+                timeUnit(arg, modulu_this);
+                end = end - (end % modulu_this);
+            }
+
             begin = end - parseTimeInterval(arg);
         }
         else
@@ -388,6 +409,44 @@ unittest
     Test.test!("==")(interval.begin, 1554125192);
     /// 2019-04-01 15:26:31
     Test.test!("==")(interval.end, 1554132391);
+
+    // TEST_TIME_NOW - 2019-04-01 15:26:32
+    // Test the "round" argumnet
+    // hours
+    args = new Arguments;
+
+    setupTimeIntervalArgs(args, false);
+    args.parse("--time-interval 1h --round");
+    interval = processTimeIntervalArgs(args);
+
+    /// 2019-04-01 14:00:00
+    Test.test!("==")(interval.begin, 1554127200);
+    /// 2019-04-01 14:59:59
+    Test.test!("==")(interval.end, 1554130799);
+
+    // minutes
+    args = new Arguments;
+
+    setupTimeIntervalArgs(args, false);
+    args.parse("--time-interval 5m --round");
+    interval = processTimeIntervalArgs(args);
+
+    /// 2019-04-01 15:21:00
+    Test.test!("==")(interval.begin, 1554132060);
+    /// 2019-04-01 14:25:59
+    Test.test!("==")(interval.end, 1554132359);
+
+    // days
+    args = new Arguments;
+
+    setupTimeIntervalArgs(args, false);
+    args.parse("--time-interval 3d --round");
+    interval = processTimeIntervalArgs(args);
+
+    /// 2019-03-29 00:00:00
+    Test.test!("==")(interval.begin, 1553817600);
+    /// 2019-03-31 11:59:59
+    Test.test!("==")(interval.end, 1554076799);
 }
 
 /******************************************************************************
@@ -507,4 +566,64 @@ unittest
 
     Test.test!("==")(isTimeInterval("1x"), false);
     Test.test!("==")(isTimeInterval("2xm"), false);
+}
+
+/******************************************************************************
+
+    Returns the time unit to modulu, to get rounded time
+
+    Params:
+        value = a string containing an integer and the first leter of a time
+            unit. The supported units are minutes, hours and days.
+        modulu_this = the returned value
+
+    Returns:
+        true, if the string is a valid interval
+
+******************************************************************************/
+
+public bool timeUnit  ( cstring value, ref long modulu_this)
+{
+    if (value == "")
+    {
+        return false;
+    }
+
+    long result;
+    long tempValue;
+
+    char unit = value[value.length - 1];
+
+    if ( !toLong(value[0..$-1], tempValue) )
+    {
+        return false;
+    }
+
+    if ( unit == 's')
+        modulu_this = 1;
+    if ( unit == 'm')
+        modulu_this = 60;
+    if ( unit == 'h')
+        modulu_this = 3600;
+    if ( unit == 'd')
+        modulu_this = 86400;
+
+    return false;
+}
+
+///
+unittest
+{
+    long modulu_this;
+    timeUnit("3s", modulu_this);
+    Test.test!("==")(modulu_this, 1);
+
+    timeUnit("5m", modulu_this);
+    Test.test!("==")(modulu_this, 60);
+
+    timeUnit("7h", modulu_this);
+    Test.test!("==")(modulu_this, 3600);
+
+    timeUnit("1d", modulu_this);
+    Test.test!("==")(modulu_this, 86400);
 }
