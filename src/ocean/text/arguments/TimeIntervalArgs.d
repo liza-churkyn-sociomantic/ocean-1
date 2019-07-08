@@ -76,13 +76,13 @@ struct TimestampInterval
 }
 
 /// Number of seconds in a minute
-const SECONDS_IN_MINUTE = 60;
+static immutable SECONDS_IN_MINUTE = 60;
 
 /// Number of seconds in an hour
-const SECONDS_IN_HOUR = SECONDS_IN_MINUTE * 60;
+static immutable SECONDS_IN_HOUR = SECONDS_IN_MINUTE * 60;
 
 /// Number of seconds in the day
-const SECONDS_IN_DAY = SECONDS_IN_HOUR * 24;
+static immutable SECONDS_IN_DAY = SECONDS_IN_HOUR * 24;
 
 /***************************************************************************
 
@@ -326,7 +326,7 @@ private long parseDateString ( cstring value, bool include_end_date = false )
 version ( UnitTest )
 {
     // 2019-04-01 15:26:32
-    const TEST_TIME_NOW = 1554132392;
+    static immutable TEST_TIME_NOW = 1554132392;
 
     /***************************************************************************
 
